@@ -14,7 +14,6 @@ This project presents the development and implementation of an advanced Smart Wa
 5. [Testing and Implementation](#testing-and-implementation)
    - [Components and Costs](#components-and-costs)
 6. [Conclusion](#conclusion)
-7. [Appendices](#appendices)
 
 ## Introduction
 
