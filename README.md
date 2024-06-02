@@ -90,19 +90,14 @@ For more information on parts and components, see Appendix C.
 
 The Smart Water Sprinkler System represents a significant advancement in fire detection and suppression technology. By integrating AI, robotics, and IoT capabilities, this system offers a reliable and efficient solution for enhancing fire safety in various settings. Continued testing and development will ensure the system meets all safety and performance standards.
 
-## Appendices
 
-- **Appendix A: System Flowchart**
-- **Appendix B: Fire Detection Methods**
-- **Appendix C: Detailed Component Information**
-- **Appendix D: Risk Assessment Details**
+<hr>
+<hr>
+<hr>
+<hr>
+<hr>
 
----
-
-This README provides a comprehensive overview of the Smart Water Sprinkler System project, detailing its design, implementation, and risk management strategies. For further information or specific queries, please refer to the appendices or contact the project team.
-
-
-
+<h2 align="center">Credits to spacewalk01 for the fire detection model</h2>
 <p align="center">
   <img src="results/result.gif" />
 </p>
