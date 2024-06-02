@@ -34,6 +34,11 @@ import os
 import platform
 import sys
 from pathlib import Path
+import time
+
+# Delay for 10 seconds
+time.sleep(10)
+
 
 import torch
 
@@ -53,6 +58,28 @@ from utils.general import (LOGGER, Profile, check_file, check_img_size, check_im
                            increment_path, non_max_suppression, print_args, scale_boxes, strip_optimizer, xyxy2xywh)
 from utils.torch_utils import select_device, smart_inference_mode
 from utils.metrics import fitness
+import ServoAngle as SA
+
+import joblib
+import pandas as pd
+import numpy as np
+
+# Load the trained Random Forest model
+model = joblib.load('random_forest_fire_model.pkl')
+
+# Function to predict based on new sensor data
+def predict_fire_status(fire_detected, smoke_value, thermal_array):
+    # Compute the average temperature of the central 4x4 region of the 8x8 thermal array
+    central_heat = np.mean(thermal_array[2:6, 2:6])
+    print(central_heat)
+    
+    # Prepare the data for prediction
+    new_data = {'fire_detected': [fire_detected], 'smoke_value': [smoke_value], 'central_heat': [central_heat]}
+    new_data_df = pd.DataFrame(new_data)
+    
+    # Make a prediction
+    prediction = model.predict(new_data_df)
+    return prediction[0]
 
 @smart_inference_mode()
 def run(
@@ -119,13 +146,16 @@ def run(
     # Run inference
     model.warmup(imgsz=(1 if pt or model.triton else bs, 3, *imgsz))  # warmup
     seen, windows, dt = 0, [], (Profile(), Profile(), Profile())
+    previous_angle=0
     for path, im, im0s, vid_cap, s in dataset:
+        
         with dt[0]:
             im = torch.from_numpy(im).to(model.device)
             im = im.half() if model.fp16 else im.float()  # uint8 to fp16/32
             im /= 255  # 0 - 255 to 0.0 - 1.0
             if len(im.shape) == 3:
                 im = im[None]  # expand for batch dim
+        
 
         # Inference
         with dt[1]:
@@ -168,7 +198,7 @@ def run(
             imc = im0.copy() if save_crop else im0  # for save_crop
             annotator = Annotator(im0, line_width=line_thickness, example=str(names))
             if len(det):
-                import ServoAngle as SA
+                
                 # Rescale boxes from img_size to im0 size
                 det[:, :4] = scale_boxes(im.shape[2:], det[:, :4], im0.shape).round()
 
@@ -185,8 +215,9 @@ def run(
                     confidence = float(conf)
                     confidence_str = f'{confidence:.2f}'
                     coordinates=xyxy2xywh(torch.tensor(xyxy))
-                    
-                    SA.xyToAngles(coordinates)
+                    print("x:",coordinates[0])
+                    print("y:",coordinates[1])
+                    previous_angle = SA.xyToAngles(coordinates,previous_angle)
                     
 
                     if save_csv:
@@ -204,7 +235,8 @@ def run(
                         annotator.box_label(xyxy, label, color=colors(c, True))
                     if save_crop:
                         save_one_box(xyxy, imc, file=save_dir / 'crops' / names[c] / f'{p.stem}.jpg', BGR=True)
-
+            else:
+                previous_angle = SA.sweep(previous_angle)
             # Stream results
             im0 = annotator.result()
             if view_img:
@@ -235,7 +267,8 @@ def run(
                         save_path = str(Path(save_path).with_suffix('.mp4'))  # force *.mp4 suffix on results videos
                         vid_writer[i] = cv2.VideoWriter(save_path, cv2.VideoWriter_fourcc(*'mp4v'), fps, (w, h))
                     vid_writer[i].write(im0)
-
+        
+            
         # Print time (inference-only)
         LOGGER.info(f"{s}{'' if len(det) else '(no detections), '}{dt[1].dt * 1E3:.1f}ms")
 
@@ -256,7 +289,7 @@ def parse_opt():
     parser.add_argument('--source', type=str, default=0, help='file/dir/URL/glob/screen/0(webcam)')
     parser.add_argument('--data', type=str, default='fire_config.yaml', help='(optional) dataset.yaml path')
     parser.add_argument('--imgsz', '--img', '--img-size', nargs='+', type=int, default=[256], help='inference size h,w')
-    parser.add_argument('--conf-thres', type=float, default=0.1, help='confidence threshold')
+    parser.add_argument('--conf-thres', type=float, default=0.3, help='confidence threshold')
     parser.add_argument('--iou-thres', type=float, default=0.45, help='NMS IoU threshold')
     parser.add_argument('--max-det', type=int, default=1, help='maximum detections per image')
     parser.add_argument('--device', default='cpu', help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
